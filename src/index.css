@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    font-family: "Avenir Next", "Segoe UI", sans-serif;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply m-0 overflow-hidden overscroll-none;
+  }
+
+  button,
+  input {
+    font: inherit;
+  }
+
+  input[type="range"] {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+@layer components {
+  .wheel-shell {
+    width: min(100%, 22rem);
+    aspect-ratio: 1;
+    position: relative;
+    display: grid;
+    place-items: center;
+  }
+
+  .wheel__rotor {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    transform-origin: center;
+    animation: wheel-spin var(--wheel-spin-duration, 8s) linear infinite;
+    animation-direction: var(--wheel-spin-direction, normal);
+    animation-play-state: var(--wheel-play-state, paused);
+    will-change: transform;
+  }
+
+  .wheel__svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .wheel__svg-ring {
+    fill: none;
+    stroke: var(--wheel-border-color, rgb(188 188 188));
+    stroke-width: 0.7;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .wheel__svg-tick {
+    stroke: var(--wheel-tick-color, rgb(143 143 143));
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    shape-rendering: geometricPrecision;
+  }
+
+  .wheel__svg-tick--lead {
+    animation: lead-tick-pulse var(--wheel-spin-duration, 8s) linear infinite;
+    animation-play-state: var(--wheel-play-state, paused);
+  }
+
+  .wheel__play {
+    position: relative;
+    z-index: 1;
+    width: 10.5rem;
+    height: 10.5rem;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    cursor: pointer;
+    transform-origin: center;
+    transform: rotate(var(--play-angle, 0deg));
+    will-change: transform;
+  }
+
+  .wheel__play:focus-visible {
+    outline: 2px solid rgb(120 120 120);
+    outline-offset: 0.35rem;
+  }
+
+  .wheel__play-icon {
+    --play-size: 5.4rem;
+    --play-center-adjust: calc(var(--play-size) * 0.098);
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: var(--play-size);
+    height: var(--play-size);
+    background: var(--wheel-play-color, rgb(122 122 122));
+    clip-path: polygon(20% 25%, 28.66% 20%, 71.96% 45%, 71.96% 55%, 28.66% 80%, 20% 75%);
+    transform: translate(calc(-50% + var(--play-center-adjust)), -50%);
+  }
+}
+
+@keyframes wheel-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes lead-tick-pulse {
+  0%,
+  24.4%,
+  26.6%,
+  100% {
+    stroke: var(--wheel-tick-color, rgb(143 143 143));
+  }
+
+  24.5%,
+  26.5% {
+    stroke: var(--wheel-lead-tick-color, rgb(255 255 255));
+  }
+}
+
+@media (max-width: 420px) {
+  .wheel-shell {
+    width: min(100%, 19.25rem);
+  }
+
+  .wheel__play {
+    width: 9.25rem;
+    height: 9.25rem;
+  }
+
+  .wheel__play-icon {
+    --play-size: 4.75rem;
+  }
+}

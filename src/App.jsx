@@ -152,7 +152,7 @@ function ToggleControl({
 
 export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [tickDuration, setTickDuration] = useState(2);
+  const [tickDuration, setTickDuration] = useState(8);
   const [playDuration, setPlayDuration] = useState(18);
   const [beatsPerBar, setBeatsPerBar] = useState(4);
   const [playClockwise, setPlayClockwise] = useState(false);

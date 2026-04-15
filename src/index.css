@@ -121,14 +121,14 @@
 
 @keyframes lead-tick-pulse {
   0%,
-  24.4%,
-  26.6%,
+  22.9%,
+  25.1%,
   100% {
     stroke: var(--wheel-tick-color, rgb(143 143 143));
   }
 
-  24.5%,
-  26.5% {
+  23%,
+  25% {
     stroke: var(--wheel-lead-tick-color, rgb(255 255 255));
   }
 }

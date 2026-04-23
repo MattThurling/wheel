@@ -50,6 +50,26 @@
     will-change: transform;
   }
 
+  .wheel__highlight-window {
+    position: absolute;
+    inset: 0;
+    opacity: var(--wheel-highlight-opacity, 0);
+    overflow: hidden;
+    pointer-events: none;
+    clip-path: inset(47.5% 8% 47.5% 84.5% round 999px);
+  }
+
+  .wheel__highlight-rotor {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    transform-origin: center;
+    animation: wheel-spin var(--wheel-spin-duration, 8s) linear infinite;
+    animation-direction: var(--wheel-spin-direction, normal);
+    animation-play-state: var(--wheel-play-state, paused);
+    will-change: transform;
+  }
+
   .wheel__svg {
     display: block;
     width: 100%;
@@ -72,9 +92,8 @@
     shape-rendering: geometricPrecision;
   }
 
-  .wheel__svg-tick--lead {
-    animation: lead-tick-pulse var(--wheel-spin-duration, 8s) linear infinite;
-    animation-play-state: var(--wheel-play-state, paused);
+  .wheel__svg-tick--highlight {
+    stroke: var(--wheel-highlight-color, rgb(255 255 255));
   }
 
   .wheel__play {
@@ -116,20 +135,6 @@
 
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes lead-tick-pulse {
-  0%,
-  22.9%,
-  25.1%,
-  100% {
-    stroke: var(--wheel-tick-color, rgb(143 143 143));
-  }
-
-  23%,
-  25% {
-    stroke: var(--wheel-lead-tick-color, rgb(255 255 255));
   }
 }
 

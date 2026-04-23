@@ -64,6 +64,19 @@ export default function Wheel({
     };
   }, [isPlaying, playClockwise, playDuration]);
 
+  const renderTicks = (className) =>
+    tickAngles.map((angle) => (
+      <line
+        key={`${className}-${angle}`}
+        className={className}
+        x1="50"
+        y1="9.5"
+        x2="50"
+        y2="12.5"
+        transform={`rotate(${angle} 50 50)`}
+      />
+    ));
+
   return (
     <div
       className="wheel-shell"
@@ -71,11 +84,12 @@ export default function Wheel({
         "--wheel-spin-duration": `${tickDuration}s`,
         "--play-spin-duration": `${playDuration}s`,
         "--wheel-play-state": isPlaying ? "running" : "paused",
+        "--wheel-highlight-opacity": isPlaying ? 1 : 0,
         "--wheel-spin-direction": "normal",
         "--play-spin-direction": playClockwise ? "normal" : "reverse",
         "--wheel-border-color": dayMode ? "rgb(188 188 188)" : "rgb(120 120 128)",
         "--wheel-tick-color": dayMode ? "rgb(228 228 228)" : "rgb(48 48 52)",
-        "--wheel-lead-tick-color": dayMode ? "rgb(0 0 0)" : "rgb(255 255 255)",
+        "--wheel-highlight-color": dayMode ? "rgb(0 0 0)" : "rgb(255 255 255)",
         "--wheel-play-color": dayMode ? "rgb(122 122 122)" : "rgb(245 245 245)"
       }}
     >
@@ -87,21 +101,21 @@ export default function Wheel({
           focusable="false"
         >
           <circle className="wheel__svg-ring" cx="50" cy="50" r="48.5" />
-
-          {tickAngles.map((angle) => (
-            <line
-              key={angle}
-              className={`wheel__svg-tick ${
-                angle === 0 ? "wheel__svg-tick--lead" : ""
-              }`}
-              x1="50"
-              y1="9.5"
-              x2="50"
-              y2="12.5"
-              transform={`rotate(${angle} 50 50)`}
-            />
-          ))}
+          {renderTicks("wheel__svg-tick")}
         </svg>
+      </div>
+
+      <div className="wheel__highlight-window" aria-hidden="true">
+        <div className="wheel__highlight-rotor">
+          <svg
+            className="wheel__svg"
+            viewBox="0 0 100 100"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {renderTicks("wheel__svg-tick wheel__svg-tick--highlight")}
+          </svg>
+        </div>
       </div>
 
       <button

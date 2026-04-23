@@ -16,13 +16,13 @@ function SliderControl({
   value,
   min,
   max,
+  step = 1,
   onChange,
+  valueText,
   nightMode,
   trailing,
   iconClassName = ""
 }) {
-  const sliderValue = max + min - value;
-
   return (
     <div className="flex items-center gap-4">
       {Icon ? (
@@ -42,11 +42,11 @@ function SliderControl({
         type="range"
         min={min}
         max={max}
-        step="1"
-        value={sliderValue}
-        onChange={(event) => onChange(max + min - Number(event.target.value))}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
         aria-label={ariaLabel}
-        aria-valuetext={`${value} seconds per revolution`}
+        aria-valuetext={valueText}
         className={`range range-xs flex-1 ${
           nightMode ? "range-primary" : "range-neutral"
         }`}
@@ -152,14 +152,14 @@ function ToggleControl({
 
 export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [tickDuration, setTickDuration] = useState(8);
-  const [playDuration, setPlayDuration] = useState(18);
+  const [bpm, setBpm] = useState(30);
+  const [playRpm, setPlayRpm] = useState(3.3);
   const [beatsPerBar, setBeatsPerBar] = useState(4);
   const [playClockwise, setPlayClockwise] = useState(false);
   const [dayMode, setDayMode] = useState(false);
   const nightMode = !dayMode;
-  const bpm = Math.round((beatsPerBar * 60) / tickDuration);
-  const playRpm = (60 / playDuration).toFixed(1);
+  const tickDuration = (beatsPerBar * 60) / bpm;
+  const playDuration = 60 / playRpm;
 
   return (
     <div
@@ -173,24 +173,30 @@ export default function App() {
             <SliderControl
               ariaLabel="Tick spin speed"
               icon={Metronome}
-              value={tickDuration}
-              min={2}
-              max={14}
-              onChange={setTickDuration}
+              value={bpm}
+              min={20}
+              max={240}
+              step={1}
+              onChange={setBpm}
+              valueText={`${bpm} beats per minute`}
               nightMode={nightMode}
               trailing={<ValueReadout nightMode={nightMode}>{bpm}</ValueReadout>}
             />
             <SliderControl
               ariaLabel="Play spin speed"
               icon={CirclePlay}
-              value={playDuration}
-              min={10}
-              max={40}
-              onChange={setPlayDuration}
+              value={playRpm}
+              min={1}
+              max={20}
+              step={0.1}
+              onChange={setPlayRpm}
+              valueText={`${playRpm.toFixed(1)} revolutions per minute`}
               nightMode={nightMode}
               trailing={
                 <div className="flex items-center gap-3">
-                  <ValueReadout nightMode={nightMode}>{playRpm}</ValueReadout>
+                  <ValueReadout nightMode={nightMode}>
+                    {playRpm.toFixed(1)}
+                  </ValueReadout>
                   <ToggleControl
                     ariaLabel="Play rotation direction"
                     checked={playClockwise}

@@ -4,15 +4,18 @@ import { useEffect, useRef } from "react";
 const innerCircles = [
   {
     className: "wheel__inner-orbit wheel__inner-orbit--one",
-    Icon: KeyboardMusic
+    Icon: KeyboardMusic,
+    showTicks: true
   },
   {
     className: "wheel__inner-orbit wheel__inner-orbit--two",
-    Icon: Guitar
+    Icon: Guitar,
+    showTicks: true
   },
   {
     className: "wheel__inner-orbit wheel__inner-orbit--three",
-    Icon: Drum
+    Icon: Drum,
+    showTicks: true
   }
 ];
 
@@ -140,6 +143,19 @@ export default function Wheel({
       />
     ));
 
+  const renderInnerTicks = () =>
+    Array.from({ length: 12 }, (_, index) => index * 30).map((angle) => (
+      <line
+        key={`inner-tick-${angle}`}
+        className="wheel__inner-mini-tick"
+        x1="50"
+        y1="1.75"
+        x2="50"
+        y2="5.75"
+        transform={`rotate(${angle} 50 50)`}
+      />
+    ));
+
   return (
     <div
       ref={wheelShellRef}
@@ -171,16 +187,26 @@ export default function Wheel({
         </svg>
 
         <div className="wheel__inner-circles">
-          {innerCircles.map(({ className, Icon }) => (
+          {innerCircles.map(({ className, Icon, showTicks }) => (
             <span key={className} className={className}>
               <span className="wheel__inner-circle-shell">
                 <span className="wheel__inner-circle">
-                <Icon
-                  size={22}
-                  strokeWidth={1.75}
-                  aria-hidden="true"
-                  className="wheel__inner-icon"
-                />
+                  {showTicks ? (
+                    <svg
+                      className="wheel__inner-mini-ticks"
+                      viewBox="0 0 100 100"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      {renderInnerTicks()}
+                    </svg>
+                  ) : null}
+                  <Icon
+                    size={22}
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                    className="wheel__inner-icon"
+                  />
                 </span>
               </span>
             </span>

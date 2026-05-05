@@ -135,7 +135,29 @@
   }
 
   .wheel__inner-icon {
+    position: relative;
+    z-index: 1;
     color: var(--wheel-inner-icon-color, rgb(84 84 84));
+  }
+
+  .wheel__inner-mini-ticks {
+    position: absolute;
+    inset: 4%;
+    width: 92%;
+    height: 92%;
+    overflow: visible;
+  }
+
+  .wheel__inner-mini-tick {
+    stroke: color-mix(
+      in srgb,
+      var(--wheel-inner-icon-color, rgb(84 84 84)) 72%,
+      transparent
+    );
+    stroke-width: 3;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    shape-rendering: geometricPrecision;
   }
 
   .wheel__inner-orbit--one {

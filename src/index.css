@@ -160,6 +160,14 @@
     shape-rendering: geometricPrecision;
   }
 
+  .wheel__inner-mini-number {
+    fill: var(--wheel-inner-icon-color, rgb(84 84 84));
+    font-size: 14px;
+    font-weight: 600;
+    text-anchor: middle;
+    dominant-baseline: middle;
+  }
+
   .wheel__inner-orbit--one {
     left: 20.7%;
     top: 33.1%;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CirclePlay,
   Metronome,
@@ -8,7 +8,16 @@ import {
   RotateCw,
   Sun
 } from "lucide-react";
+import trackAUrl from "../audio/sarniezz-A.wav";
+import trackBUrl from "../audio/sarniezz-B.wav";
+import trackDUrl from "../audio/sarniezz-D.wav";
 import Wheel from "./components/Wheel";
+
+const trackSources = {
+  A: trackAUrl,
+  B: trackBUrl,
+  D: trackDUrl
+};
 
 function SliderControl({
   ariaLabel,
@@ -150,16 +159,182 @@ function ToggleControl({
   );
 }
 
+function TrackSelector({ selectedTrack, onChange, nightMode }) {
+  const trackLabels = ["A", "B", "D"];
+
+  return (
+    <div className="flex items-center justify-center gap-4 pt-1">
+      {trackLabels.map((label) => (
+        <label
+          key={label}
+          className={`flex items-center gap-2 text-sm font-medium ${
+            nightMode ? "text-stone-200" : "text-stone-700"
+          }`}
+        >
+          <input
+            type="radio"
+            name="track-select"
+            value={label}
+            checked={selectedTrack === label}
+            onChange={() => onChange(label)}
+            aria-label={`Select track ${label}`}
+            className={`radio radio-xs ${
+              nightMode ? "radio-primary" : "radio-neutral"
+            }`}
+          />
+          <span>{label}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
+  const audioContextRef = useRef(null);
+  const audioBuffersRef = useRef({});
+  const activeSourceRef = useRef(null);
+  const loadPromiseRef = useRef(null);
+  const isPlayingRef = useRef(false);
+  const selectedTrackRef = useRef("B");
   const [isPlaying, setIsPlaying] = useState(false);
-  const [bpm, setBpm] = useState(30);
+  const [resetToken, setResetToken] = useState(0);
+  const [bpm, setBpm] = useState(116);
   const [playRpm, setPlayRpm] = useState(3.3);
-  const [beatsPerBar, setBeatsPerBar] = useState(4);
+  const [beatsPerBar, setBeatsPerBar] = useState(12);
   const [playClockwise, setPlayClockwise] = useState(false);
   const [dayMode, setDayMode] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState("B");
   const nightMode = !dayMode;
   const tickDuration = (beatsPerBar * 60) / bpm;
   const playDuration = 60 / playRpm;
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
+    selectedTrackRef.current = selectedTrack;
+  }, [selectedTrack]);
+
+  useEffect(() => {
+    const audioContext = new window.AudioContext();
+    let disposed = false;
+
+    audioContextRef.current = audioContext;
+
+    loadPromiseRef.current = Promise.all(
+      Object.entries(trackSources).map(async ([key, source]) => {
+        const response = await fetch(source);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        return [key, audioBuffer];
+      })
+    ).then((entries) => {
+      if (disposed) {
+        return;
+      }
+
+      audioBuffersRef.current = Object.fromEntries(entries);
+    });
+
+    return () => {
+      disposed = true;
+
+      if (activeSourceRef.current) {
+        activeSourceRef.current.onended = null;
+        try {
+          activeSourceRef.current.stop();
+        } catch {
+          // Source may already be stopped.
+        }
+        activeSourceRef.current.disconnect();
+        activeSourceRef.current = null;
+      }
+
+      audioBuffersRef.current = {};
+      loadPromiseRef.current = null;
+      void audioContext.close();
+      audioContextRef.current = null;
+    };
+  }, []);
+
+  const stopAllTracks = () => {
+    if (!activeSourceRef.current) {
+      return;
+    }
+
+    activeSourceRef.current.onended = null;
+
+    try {
+      activeSourceRef.current.stop();
+    } catch {
+      // Source may already be stopped.
+    }
+
+    activeSourceRef.current.disconnect();
+    activeSourceRef.current = null;
+  };
+
+  const playTrack = async (trackKey) => {
+    if (loadPromiseRef.current) {
+      await loadPromiseRef.current;
+    }
+
+    if (!isPlayingRef.current || selectedTrackRef.current !== trackKey) {
+      return;
+    }
+
+    const audioContext = audioContextRef.current;
+    const audioBuffer = audioBuffersRef.current[trackKey];
+
+    if (!audioContext || !audioBuffer) {
+      return;
+    }
+
+    await audioContext.resume().catch(() => {});
+
+    if (!isPlayingRef.current || selectedTrackRef.current !== trackKey) {
+      return;
+    }
+
+    stopAllTracks();
+
+    const sourceNode = audioContext.createBufferSource();
+    sourceNode.buffer = audioBuffer;
+    sourceNode.loop = true;
+    sourceNode.loopStart = 0;
+    sourceNode.loopEnd = audioBuffer.duration;
+    sourceNode.connect(audioContext.destination);
+    sourceNode.start(0);
+    activeSourceRef.current = sourceNode;
+  };
+
+  const handleTogglePlay = () => {
+    const nextPlaying = !isPlaying;
+    isPlayingRef.current = nextPlaying;
+    setIsPlaying(nextPlaying);
+
+    if (nextPlaying) {
+      void playTrack(selectedTrack);
+      return;
+    }
+
+    stopAllTracks();
+  };
+
+  const handleTrackChange = (trackKey) => {
+    stopAllTracks();
+    isPlayingRef.current = false;
+    setIsPlaying(false);
+    selectedTrackRef.current = trackKey;
+    setSelectedTrack(trackKey);
+    if (trackKey === "D") {
+      setBpm(87);
+    } else if (trackKey === "A" || trackKey === "B") {
+      setBpm(116);
+    }
+    setResetToken((current) => current + 1);
+  };
 
   return (
     <div
@@ -218,13 +393,20 @@ export default function App() {
               nightMode={nightMode}
               trailing={<ValueReadout nightMode={nightMode}>{beatsPerBar}</ValueReadout>}
             />
+            <TrackSelector
+              selectedTrack={selectedTrack}
+              onChange={handleTrackChange}
+              nightMode={nightMode}
+            />
           </div>
         </section>
 
         <section className="flex w-full flex-1 items-center justify-center">
           <Wheel
             isPlaying={isPlaying}
-            onTogglePlay={() => setIsPlaying((current) => !current)}
+            onTogglePlay={handleTogglePlay}
+            resetToken={resetToken}
+            selectedTrack={selectedTrack}
             tickDuration={tickDuration}
             playDuration={playDuration}
             beatsPerBar={beatsPerBar}

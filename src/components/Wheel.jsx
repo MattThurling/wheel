@@ -45,6 +45,7 @@ export default function Wheel({
     (_, index) => (index * 360) / beatsPerBar
   );
   const innerMarkerAngles = Array.from({ length: 12 }, (_, index) => index * 30);
+  const guitarMarkerAngles = Array.from({ length: 8 }, (_, index) => index * 45);
   const playButtonRef = useRef(null);
   const onBeatRef = useRef(onBeat);
   const wheelAngleRef = useRef(0);
@@ -125,7 +126,7 @@ export default function Wheel({
 
       while (guitarAccumulatorRef.current >= quaverDuration) {
         guitarAccumulatorRef.current -= quaverDuration;
-        nextGuitarQuaverIndex = (nextGuitarQuaverIndex + 1) % innerMarkerAngles.length;
+        nextGuitarQuaverIndex = (nextGuitarQuaverIndex + 1) % guitarMarkerAngles.length;
         advancedGuitar = true;
       }
 
@@ -160,7 +161,7 @@ export default function Wheel({
       window.cancelAnimationFrame(frameId);
       lastWheelFrameRef.current = null;
     };
-  }, [beatsPerBar, innerMarkerAngles.length, isPlaying, tickDuration]);
+  }, [beatsPerBar, guitarMarkerAngles.length, innerMarkerAngles.length, isPlaying, tickDuration]);
 
   useEffect(() => {
     if (!playButtonRef.current) {
@@ -223,7 +224,8 @@ export default function Wheel({
     ));
 
   const renderInnerMarkers = (markerMode) => {
-    const markerAngles = innerMarkerAngles;
+    const markerAngles =
+      markerMode === "quavers" ? guitarMarkerAngles : innerMarkerAngles;
 
     return markerAngles.map((angle, index) => {
       if (markerMode === "tripletPairs") {

@@ -157,7 +157,7 @@ export default function App() {
   const keyboardPairIndexRef = useRef(0);
   const outerCrotchetIndexRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [bpm, setBpm] = useState(116);
+  const [bpm, setBpm] = useState(60);
   const [playRpm, setPlayRpm] = useState(3.3);
   const [beatsPerBar, setBeatsPerBar] = useState(12);
   const [playClockwise, setPlayClockwise] = useState(false);

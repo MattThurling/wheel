@@ -176,7 +176,21 @@ function createCookieHeader(request, token) {
 export default async function middleware(request) {
   const expectedPassword = process.env.SITE_PASSWORD;
 
-  if (!expectedPassword || request.method === "OPTIONS") {
+  if (!expectedPassword) {
+    if (process.env.VERCEL) {
+      return new Response("SITE_PASSWORD is not configured for this deployment.", {
+        status: 503,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store"
+        }
+      });
+    }
+
+    return next();
+  }
+
+  if (request.method === "OPTIONS") {
     return next();
   }
 

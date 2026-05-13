@@ -8,16 +8,7 @@ import {
   RotateCw,
   Sun
 } from "lucide-react";
-import trackAUrl from "../audio/sarniezz-A.wav";
-import trackBUrl from "../audio/sarniezz-B.wav";
-import trackDUrl from "../audio/sarniezz-D.wav";
 import Wheel from "./components/Wheel";
-
-const trackSources = {
-  A: trackAUrl,
-  B: trackBUrl,
-  D: trackDUrl
-};
 
 function SliderControl({
   ariaLabel,
@@ -159,51 +150,26 @@ function ToggleControl({
   );
 }
 
-function TrackSelector({ selectedTrack, onChange, nightMode }) {
-  const trackLabels = ["A", "B", "D"];
-
-  return (
-    <div className="flex items-center justify-center gap-4 pt-1">
-      {trackLabels.map((label) => (
-        <label
-          key={label}
-          className={`flex items-center gap-2 text-sm font-medium ${
-            nightMode ? "text-stone-200" : "text-stone-700"
-          }`}
-        >
-          <input
-            type="radio"
-            name="track-select"
-            value={label}
-            checked={selectedTrack === label}
-            onChange={() => onChange(label)}
-            aria-label={`Select track ${label}`}
-            className={`radio radio-xs ${
-              nightMode ? "radio-primary" : "radio-neutral"
-            }`}
-          />
-          <span>{label}</span>
-        </label>
-      ))}
-    </div>
-  );
-}
-
 export default function App() {
   const audioContextRef = useRef(null);
-  const audioBuffersRef = useRef({});
-  const activeSourceRef = useRef(null);
-  const loadPromiseRef = useRef(null);
+  const activeVoicesRef = useRef(new Set());
   const isPlayingRef = useRef(false);
-  const selectedTrackRef = useRef("B");
+  const keyboardPairIndexRef = useRef(0);
+  const outerCrotchetIndexRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [resetToken, setResetToken] = useState(0);
   const [bpm, setBpm] = useState(116);
   const [playRpm, setPlayRpm] = useState(3.3);
   const [beatsPerBar, setBeatsPerBar] = useState(12);
   const [playClockwise, setPlayClockwise] = useState(false);
   const [dayMode, setDayMode] = useState(false);
-  const [selectedTrack, setSelectedTrack] = useState("B");
+  const [outerMuted, setOuterMuted] = useState(false);
+  const [mutedTracks, setMutedTracks] = useState({
+    keys: false,
+    guitar: false,
+    drum: false
+  });
+  const outerMutedRef = useRef(outerMuted);
+  const mutedTracksRef = useRef(mutedTracks);
   const nightMode = !dayMode;
   const tickDuration = (beatsPerBar * 60) / bpm;
   const playDuration = 60 / playRpm;
@@ -213,127 +179,279 @@ export default function App() {
   }, [isPlaying]);
 
   useEffect(() => {
-    selectedTrackRef.current = selectedTrack;
-  }, [selectedTrack]);
+    mutedTracksRef.current = mutedTracks;
+  }, [mutedTracks]);
 
   useEffect(() => {
-    const audioContext = new window.AudioContext();
-    let disposed = false;
+    outerMutedRef.current = outerMuted;
+  }, [outerMuted]);
 
-    audioContextRef.current = audioContext;
-
-    loadPromiseRef.current = Promise.all(
-      Object.entries(trackSources).map(async ([key, source]) => {
-        const response = await fetch(source);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        return [key, audioBuffer];
-      })
-    ).then((entries) => {
-      if (disposed) {
-        return;
-      }
-
-      audioBuffersRef.current = Object.fromEntries(entries);
-    });
-
+  useEffect(() => {
     return () => {
-      disposed = true;
-
-      if (activeSourceRef.current) {
-        activeSourceRef.current.onended = null;
-        try {
-          activeSourceRef.current.stop();
-        } catch {
-          // Source may already be stopped.
-        }
-        activeSourceRef.current.disconnect();
-        activeSourceRef.current = null;
-      }
-
-      audioBuffersRef.current = {};
-      loadPromiseRef.current = null;
-      void audioContext.close();
+      const audioContext = audioContextRef.current;
       audioContextRef.current = null;
+      activeVoicesRef.current.forEach(({ oscillator, gainNode }) => {
+        oscillator.onended = null;
+        try {
+          oscillator.stop();
+        } catch {
+          // Oscillator may already be stopped.
+        }
+        oscillator.disconnect();
+        gainNode.disconnect();
+      });
+      activeVoicesRef.current.clear();
+
+      if (audioContext) {
+        void audioContext.close();
+      }
     };
   }, []);
 
-  const stopAllTracks = () => {
-    if (!activeSourceRef.current) {
-      return;
+  const ensureAudioContext = async () => {
+    let audioContext = audioContextRef.current;
+
+    if (!audioContext) {
+      audioContext = new window.AudioContext();
+      audioContextRef.current = audioContext;
     }
 
-    activeSourceRef.current.onended = null;
-
-    try {
-      activeSourceRef.current.stop();
-    } catch {
-      // Source may already be stopped.
+    if (audioContext.state !== "running") {
+      await audioContext.resume().catch(() => {});
     }
 
-    activeSourceRef.current.disconnect();
-    activeSourceRef.current = null;
+    return audioContextRef.current;
   };
 
-  const playTrack = async (trackKey) => {
-    if (loadPromiseRef.current) {
-      await loadPromiseRef.current;
-    }
+  const stopActiveVoices = () => {
+    activeVoicesRef.current.forEach(({ oscillator, gainNode }) => {
+      oscillator.onended = null;
 
-    if (!isPlayingRef.current || selectedTrackRef.current !== trackKey) {
-      return;
-    }
+      try {
+        oscillator.stop();
+      } catch {
+        // Oscillator may already be stopped.
+      }
 
-    const audioContext = audioContextRef.current;
-    const audioBuffer = audioBuffersRef.current[trackKey];
+      oscillator.disconnect();
+      gainNode.disconnect();
+    });
 
-    if (!audioContext || !audioBuffer) {
-      return;
-    }
-
-    await audioContext.resume().catch(() => {});
-
-    if (!isPlayingRef.current || selectedTrackRef.current !== trackKey) {
-      return;
-    }
-
-    stopAllTracks();
-
-    const sourceNode = audioContext.createBufferSource();
-    sourceNode.buffer = audioBuffer;
-    sourceNode.loop = true;
-    sourceNode.loopStart = 0;
-    sourceNode.loopEnd = audioBuffer.duration;
-    sourceNode.connect(audioContext.destination);
-    sourceNode.start(0);
-    activeSourceRef.current = sourceNode;
+    activeVoicesRef.current.clear();
   };
 
-  const handleTogglePlay = () => {
-    const nextPlaying = !isPlaying;
+  const scheduleVoice = ({
+    audioContext,
+    startTime,
+    type,
+    startFrequency,
+    endFrequency,
+    peakGain,
+    attack,
+    release,
+    duration
+  }) => {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    const voice = { oscillator, gainNode };
+
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(startFrequency, startTime);
+    oscillator.frequency.exponentialRampToValueAtTime(
+      endFrequency,
+      startTime + release
+    );
+
+    gainNode.gain.setValueAtTime(0.0001, startTime);
+    gainNode.gain.exponentialRampToValueAtTime(peakGain, startTime + attack);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + release);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    activeVoicesRef.current.add(voice);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration);
+    oscillator.onended = () => {
+      activeVoicesRef.current.delete(voice);
+      oscillator.disconnect();
+      gainNode.disconnect();
+    };
+  };
+
+  const playTickAndTocks = (audioContext = audioContextRef.current) => {
+    if (!audioContext || audioContext.state !== "running") {
+      return;
+    }
+
+    const beatDuration = 60 / bpm;
+    const subdivisionDuration = beatDuration / 3;
+    const startTime = audioContext.currentTime;
+
+    const muted = mutedTracksRef.current;
+    const isOuterBarStart = outerCrotchetIndexRef.current % 4 === 0;
+    const outerVoice = isOuterBarStart
+      ? {
+          startFrequency: 2200,
+          endFrequency: 1240,
+          peakGain: 0.14,
+          release: 0.07,
+          duration: 0.075
+        }
+      : {
+          startFrequency: 1760,
+          endFrequency: 980,
+          peakGain: 0.11,
+          release: 0.05,
+          duration: 0.055
+        };
+
+    if (!outerMutedRef.current) {
+      scheduleVoice({
+        audioContext,
+        startTime,
+        type: "square",
+        startFrequency: outerVoice.startFrequency,
+        endFrequency: outerVoice.endFrequency,
+        peakGain: outerVoice.peakGain,
+        attack: 0.002,
+        release: outerVoice.release,
+        duration: outerVoice.duration
+      });
+    }
+    outerCrotchetIndexRef.current = (outerCrotchetIndexRef.current + 1) % 4;
+
+    [0, 1, 2].forEach((subdivisionIndex) => {
+      const isHighKeyboardNote = keyboardPairIndexRef.current % 2 === 0;
+      const keyboardVoice = isHighKeyboardNote
+        ? {
+            type: "triangle",
+            startFrequency: 880,
+            endFrequency: 872,
+            peakGain: 0.07
+          }
+        : {
+            type: "triangle",
+            startFrequency: 659.25,
+            endFrequency: 653,
+            peakGain: 0.062
+          };
+
+      if (!muted.keys) {
+        scheduleVoice({
+          audioContext,
+          startTime: startTime + subdivisionDuration * subdivisionIndex,
+          type: keyboardVoice.type,
+          startFrequency: keyboardVoice.startFrequency,
+          endFrequency: keyboardVoice.endFrequency,
+          peakGain: keyboardVoice.peakGain,
+          attack: 0.006,
+          release: 0.16,
+          duration: 0.17
+        });
+      }
+
+      keyboardPairIndexRef.current = (keyboardPairIndexRef.current + 1) % 2;
+    });
+
+    if (!muted.guitar) {
+      scheduleVoice({
+        audioContext,
+        startTime,
+        type: "sawtooth",
+        startFrequency: 392,
+        endFrequency: 388,
+        peakGain: 0.055,
+        attack: 0.004,
+        release: 0.18,
+        duration: 0.19
+      });
+
+      scheduleVoice({
+        audioContext,
+        startTime: startTime + beatDuration / 2,
+        type: "sawtooth",
+        startFrequency: 493.88,
+        endFrequency: 489,
+        peakGain: 0.052,
+        attack: 0.004,
+        release: 0.18,
+        duration: 0.19
+      });
+    }
+
+    if (!muted.drum) {
+      [
+        {
+          startTime,
+          startFrequency: 220,
+          endFrequency: 96,
+          peakGain: 0.16,
+          release: 0.13,
+          duration: 0.14
+        },
+        {
+          startTime: startTime + subdivisionDuration,
+          startFrequency: 165,
+          endFrequency: 78,
+          peakGain: 0.15,
+          release: 0.14,
+          duration: 0.15
+        },
+        {
+          startTime: startTime + subdivisionDuration * 2,
+          startFrequency: 165,
+          endFrequency: 78,
+          peakGain: 0.15,
+          release: 0.14,
+          duration: 0.15
+        }
+      ].forEach((tomVoice) => {
+        scheduleVoice({
+          audioContext,
+          startTime: tomVoice.startTime,
+          type: "sine",
+          startFrequency: tomVoice.startFrequency,
+          endFrequency: tomVoice.endFrequency,
+          peakGain: tomVoice.peakGain,
+          attack: 0.002,
+          release: tomVoice.release,
+          duration: tomVoice.duration
+        });
+      });
+    }
+  };
+
+  const handleToggleTrackMute = (trackId) => {
+    setMutedTracks((currentMutedTracks) => ({
+      ...currentMutedTracks,
+      [trackId]: !currentMutedTracks[trackId]
+    }));
+  };
+
+  const handleToggleOuterMute = () => {
+    setOuterMuted((currentOuterMuted) => !currentOuterMuted);
+  };
+
+  const handleTogglePlay = async () => {
+    const nextPlaying = !isPlayingRef.current;
     isPlayingRef.current = nextPlaying;
     setIsPlaying(nextPlaying);
 
-    if (nextPlaying) {
-      void playTrack(selectedTrack);
+    if (!nextPlaying) {
+      keyboardPairIndexRef.current = 0;
+      outerCrotchetIndexRef.current = 0;
+      stopActiveVoices();
       return;
     }
 
-    stopAllTracks();
-  };
+    keyboardPairIndexRef.current = 0;
+    outerCrotchetIndexRef.current = 0;
+    const audioContext = await ensureAudioContext();
 
-  const handleTrackChange = (trackKey) => {
-    stopAllTracks();
-    isPlayingRef.current = false;
-    setIsPlaying(false);
-    selectedTrackRef.current = trackKey;
-    setSelectedTrack(trackKey);
-    if (trackKey === "D") {
-      setBpm(87);
-    } else if (trackKey === "A" || trackKey === "B") {
-      setBpm(116);
+    if (isPlayingRef.current) {
+      playTickAndTocks(audioContext);
     }
-    setResetToken((current) => current + 1);
   };
 
   return (
@@ -393,11 +511,6 @@ export default function App() {
               nightMode={nightMode}
               trailing={<ValueReadout nightMode={nightMode}>{beatsPerBar}</ValueReadout>}
             />
-            <TrackSelector
-              selectedTrack={selectedTrack}
-              onChange={handleTrackChange}
-              nightMode={nightMode}
-            />
           </div>
         </section>
 
@@ -405,13 +518,16 @@ export default function App() {
           <Wheel
             isPlaying={isPlaying}
             onTogglePlay={handleTogglePlay}
-            resetToken={resetToken}
-            selectedTrack={selectedTrack}
+            onBeat={playTickAndTocks}
             tickDuration={tickDuration}
             playDuration={playDuration}
             beatsPerBar={beatsPerBar}
             playClockwise={playClockwise}
             dayMode={dayMode}
+            outerMuted={outerMuted}
+            onToggleOuterMute={handleToggleOuterMute}
+            mutedTracks={mutedTracks}
+            onToggleTrackMute={handleToggleTrackMute}
           />
         </section>
 

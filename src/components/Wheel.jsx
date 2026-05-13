@@ -3,50 +3,41 @@ import { useEffect, useRef, useState } from "react";
 
 const innerCircles = [
   {
+    id: "keys",
+    label: "Keys",
     className: "wheel__inner-orbit wheel__inner-orbit--one",
     Icon: KeyboardMusic,
-    markerMode: "ticks"
+    markerMode: "tripletPairs"
   },
   {
+    id: "guitar",
+    label: "Guitar",
     className: "wheel__inner-orbit wheel__inner-orbit--two",
     Icon: Guitar,
-    markerMode: "ticks"
+    markerMode: "quavers"
   },
   {
+    id: "drum",
+    label: "Drum",
     className: "wheel__inner-orbit wheel__inner-orbit--three",
     Icon: Drum,
-    markerMode: "sequence"
+    markerMode: "pulse"
   }
 ];
-
-const drumSparseSequence = [0, 6];
-const drumSequence = [0, 3, 6, 9];
-const drumAlternateSequence = [0, 2, 4, 6, 8, 10];
-const drumTrackConfigs = {
-  A: {
-    sequence: drumSparseSequence,
-    outerBeatsPerAdvance: 2
-  },
-  B: {
-    sequence: drumSequence,
-    outerBeatsPerAdvance: 1
-  },
-  D: {
-    sequence: drumAlternateSequence,
-    outerBeatsPerAdvance: 0.5
-  }
-};
 
 export default function Wheel({
   isPlaying,
   onTogglePlay,
-  resetToken,
-  selectedTrack,
+  onBeat,
   tickDuration,
   playDuration,
   beatsPerBar,
   playClockwise,
-  dayMode
+  dayMode,
+  outerMuted,
+  onToggleOuterMute,
+  mutedTracks,
+  onToggleTrackMute
 }) {
   const wheelShellRef = useRef(null);
   const tickAngles = Array.from(
@@ -54,32 +45,40 @@ export default function Wheel({
     (_, index) => (index * 360) / beatsPerBar
   );
   const innerMarkerAngles = Array.from({ length: 12 }, (_, index) => index * 30);
-  const drumTrackConfig = drumTrackConfigs[selectedTrack] ?? drumTrackConfigs.B;
-  const activeDrumSequence = drumTrackConfig.sequence;
-  const drumAdvanceBeatSpan = drumTrackConfig.outerBeatsPerAdvance;
   const playButtonRef = useRef(null);
+  const onBeatRef = useRef(onBeat);
   const wheelAngleRef = useRef(0);
   const playAngleRef = useRef(0);
-  const drumSequenceIndexRef = useRef(0);
-  const beatAccumulatorRef = useRef(0);
+  const drumPulseIndexRef = useRef(0);
+  const guitarQuaverIndexRef = useRef(0);
+  const tripletStepRef = useRef(0);
+  const subdivisionAccumulatorRef = useRef(0);
+  const guitarAccumulatorRef = useRef(0);
   const lastWheelFrameRef = useRef(null);
   const lastFrameRef = useRef(null);
-  const [activeDrumMarkerIndex, setActiveDrumMarkerIndex] = useState(
-    activeDrumSequence[0]
-  );
+  const [activeDrumPulseIndex, setActiveDrumPulseIndex] = useState(0);
+  const [activeGuitarQuaverIndex, setActiveGuitarQuaverIndex] = useState(0);
+
+  useEffect(() => {
+    onBeatRef.current = onBeat;
+  }, [onBeat]);
 
   useEffect(() => {
     wheelAngleRef.current = 0;
     playAngleRef.current = 0;
-    drumSequenceIndexRef.current = 0;
-    beatAccumulatorRef.current = 0;
+    drumPulseIndexRef.current = 0;
+    guitarQuaverIndexRef.current = 0;
+    tripletStepRef.current = 0;
+    subdivisionAccumulatorRef.current = 0;
+    guitarAccumulatorRef.current = 0;
     lastWheelFrameRef.current = null;
     lastFrameRef.current = null;
 
     wheelShellRef.current?.style.setProperty("--wheel-angle", "0deg");
     playButtonRef.current?.style.setProperty("--play-angle", "0deg");
-    setActiveDrumMarkerIndex(activeDrumSequence[0]);
-  }, [activeDrumSequence, resetToken]);
+    setActiveDrumPulseIndex(0);
+    setActiveGuitarQuaverIndex(0);
+  }, [beatsPerBar]);
 
   useEffect(() => {
     if (!wheelShellRef.current) {
@@ -114,21 +113,42 @@ export default function Wheel({
         `${wheelAngleRef.current}deg`
       );
 
-      beatAccumulatorRef.current += delta;
-      const beatDuration =
-        ((tickDuration * 1000) / beatsPerBar) * drumAdvanceBeatSpan;
-      let nextSequenceIndex = drumSequenceIndexRef.current;
+      subdivisionAccumulatorRef.current += delta;
+      guitarAccumulatorRef.current += delta;
+      const subdivisionDuration = (tickDuration * 1000) / (beatsPerBar * 3);
+      const quaverDuration = (tickDuration * 1000) / (beatsPerBar * 2);
+      let nextPulseIndex = drumPulseIndexRef.current;
+      let nextGuitarQuaverIndex = guitarQuaverIndexRef.current;
+      let nextTripletStep = tripletStepRef.current;
       let advanced = false;
+      let advancedGuitar = false;
 
-      while (beatAccumulatorRef.current >= beatDuration) {
-        beatAccumulatorRef.current -= beatDuration;
-        nextSequenceIndex = (nextSequenceIndex + 1) % activeDrumSequence.length;
+      while (guitarAccumulatorRef.current >= quaverDuration) {
+        guitarAccumulatorRef.current -= quaverDuration;
+        nextGuitarQuaverIndex = (nextGuitarQuaverIndex + 1) % innerMarkerAngles.length;
+        advancedGuitar = true;
+      }
+
+      while (subdivisionAccumulatorRef.current >= subdivisionDuration) {
+        subdivisionAccumulatorRef.current -= subdivisionDuration;
+        nextPulseIndex = (nextPulseIndex + 1) % innerMarkerAngles.length;
+        nextTripletStep = (nextTripletStep + 1) % 3;
         advanced = true;
+
+        if (nextTripletStep === 0) {
+          onBeatRef.current?.();
+        }
+      }
+
+      if (advancedGuitar) {
+        guitarQuaverIndexRef.current = nextGuitarQuaverIndex;
+        setActiveGuitarQuaverIndex(nextGuitarQuaverIndex);
       }
 
       if (advanced) {
-        drumSequenceIndexRef.current = nextSequenceIndex;
-        setActiveDrumMarkerIndex(activeDrumSequence[nextSequenceIndex]);
+        drumPulseIndexRef.current = nextPulseIndex;
+        tripletStepRef.current = nextTripletStep;
+        setActiveDrumPulseIndex(nextPulseIndex);
       }
 
       frameId = window.requestAnimationFrame(step);
@@ -140,7 +160,7 @@ export default function Wheel({
       window.cancelAnimationFrame(frameId);
       lastWheelFrameRef.current = null;
     };
-  }, [activeDrumSequence, beatsPerBar, drumAdvanceBeatSpan, isPlaying, tickDuration]);
+  }, [beatsPerBar, innerMarkerAngles.length, isPlaying, tickDuration]);
 
   useEffect(() => {
     if (!playButtonRef.current) {
@@ -202,22 +222,114 @@ export default function Wheel({
       />
     ));
 
-  const renderInnerMarkers = (markerMode) =>
-    innerMarkerAngles.map((angle, index) => {
-      if (markerMode === "sequence" && index === activeDrumMarkerIndex) {
+  const renderInnerMarkers = (markerMode) => {
+    const markerAngles = innerMarkerAngles;
+
+    return markerAngles.map((angle, index) => {
+      if (markerMode === "tripletPairs") {
+        const isTick = index % 2 === 0;
+        const isActive = isPlaying && index === activeDrumPulseIndex;
+        const shouldShowNumber = isActive && isTick;
         const radians = (angle * Math.PI) / 180;
-        const x = 50 + Math.cos(radians) * 36;
-        const y = 50 + Math.sin(radians) * 36;
+        const x = 50 + Math.cos(radians) * 46.25;
+        const y = 50 + Math.sin(radians) * 46.25;
 
         return (
-          <text
-            key={`inner-number-${index + 1}`}
-            className="wheel__inner-mini-number"
-            x={x}
-            y={y}
-          >
-            {index + 1}
-          </text>
+          <g key={`inner-triplet-pair-${angle}`}>
+            {shouldShowNumber ? null : (
+              <line
+                className={`wheel__inner-mini-tick ${
+                  isActive ? "wheel__inner-mini-tick--active" : ""
+                }`}
+                x1="50"
+                y1="1.75"
+                x2="50"
+                y2="5.75"
+                transform={`rotate(${angle + 90} 50 50)`}
+              />
+            )}
+            {shouldShowNumber ? (
+              <text
+                className="wheel__inner-mini-number wheel__inner-mini-number--pulse"
+                x={x}
+                y={y}
+              >
+                {index + 1}
+              </text>
+            ) : null}
+          </g>
+        );
+      }
+
+      if (markerMode === "quavers") {
+        const isTick = index % 2 === 0;
+        const isActive = isPlaying && index === activeGuitarQuaverIndex;
+        const shouldShowNumber = isActive && isTick;
+        const radians = (angle * Math.PI) / 180;
+        const x = 50 + Math.cos(radians) * 46.25;
+        const y = 50 + Math.sin(radians) * 46.25;
+
+        return (
+          <g key={`inner-quaver-${angle}`}>
+            {shouldShowNumber ? null : (
+              <line
+                className={`wheel__inner-mini-tick ${
+                  isActive ? "wheel__inner-mini-tick--active" : ""
+                }`}
+                x1="50"
+                y1="1.75"
+                x2="50"
+                y2="5.75"
+                transform={`rotate(${angle + 90} 50 50)`}
+              />
+            )}
+            {shouldShowNumber ? (
+              <text
+                className="wheel__inner-mini-number wheel__inner-mini-number--pulse"
+                x={x}
+                y={y}
+              >
+                {index + 1}
+              </text>
+            ) : null}
+          </g>
+        );
+      }
+
+      if (markerMode === "pulse") {
+        const isQuarterBeat = index % 3 === 0;
+        const shouldShowNumber =
+          isPlaying && isQuarterBeat && index === activeDrumPulseIndex;
+        const radians = (angle * Math.PI) / 180;
+        const x = 50 + Math.cos(radians) * 46.25;
+        const y = 50 + Math.sin(radians) * 46.25;
+
+        return (
+          <g key={`inner-pulse-${angle}`}>
+            {shouldShowNumber ? null : (
+              <line
+                className={`wheel__inner-mini-tick ${
+                  isPlaying && index === activeDrumPulseIndex
+                    ? "wheel__inner-mini-tick--active"
+                    : ""
+                }`}
+                x1="50"
+                y1="1.75"
+                x2="50"
+                y2="5.75"
+                transform={`rotate(${angle + 90} 50 50)`}
+              />
+            )}
+            {shouldShowNumber ? (
+              <text
+                className="wheel__inner-mini-number wheel__inner-mini-number--pulse"
+                x={x}
+                y={y}
+              >
+                {index + 1}
+              </text>
+            ) : null}
+          </g>
         );
       }
 
@@ -233,27 +345,32 @@ export default function Wheel({
         />
       );
     });
+  };
 
   return (
     <div
       ref={wheelShellRef}
       className="wheel-shell"
+      onClick={onToggleOuterMute}
       style={{
         "--wheel-angle": "0deg",
         "--wheel-spin-duration": `${tickDuration}s`,
         "--play-spin-duration": `${playDuration}s`,
         "--wheel-play-state": isPlaying ? "running" : "paused",
-        "--wheel-highlight-opacity": isPlaying ? 1 : 0,
+        "--wheel-highlight-opacity": isPlaying && !outerMuted ? 1 : 0,
         "--wheel-spin-direction": "normal",
         "--play-spin-direction": playClockwise ? "normal" : "reverse",
         "--wheel-border-color": dayMode ? "rgb(188 188 188)" : "rgb(120 120 128)",
         "--wheel-tick-color": dayMode ? "rgb(228 228 228)" : "rgb(48 48 52)",
         "--wheel-highlight-color": dayMode ? "rgb(0 0 0)" : "rgb(255 255 255)",
         "--wheel-inner-icon-color": dayMode ? "rgb(84 84 84)" : "rgb(224 224 228)",
+        "--wheel-inner-tick-color": dayMode ? "rgb(136 136 136)" : "rgb(150 150 156)",
+        "--wheel-inner-muted-icon-color": dayMode ? "rgb(164 164 164)" : "rgb(92 92 96)",
+        "--wheel-inner-active-tick-color": dayMode ? "rgb(0 0 0)" : "rgb(255 255 255)",
         "--wheel-play-color": dayMode ? "rgb(122 122 122)" : "rgb(245 245 245)"
       }}
     >
-      <div className="wheel__rotor" aria-hidden="true">
+      <div className="wheel__rotor">
         <svg
           className="wheel__svg"
           viewBox="0 0 100 100"
@@ -265,10 +382,26 @@ export default function Wheel({
         </svg>
 
         <div className="wheel__inner-circles">
-          {innerCircles.map(({ className, Icon, markerMode }) => (
+          {innerCircles.map(({ id, label, className, Icon, markerMode }) => {
+            const isMuted = mutedTracks[id];
+
+            return (
             <span key={className} className={className}>
-              <span className="wheel__inner-circle-shell">
-                <span className="wheel__inner-circle">
+              <button
+                type="button"
+                className="wheel__inner-circle-shell"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleTrackMute(id);
+                }}
+                aria-label={`${isMuted ? "Unmute" : "Mute"} ${label}`}
+                aria-pressed={isMuted}
+              >
+                <span
+                  className={`wheel__inner-circle ${
+                    isMuted ? "wheel__inner-circle--muted" : ""
+                  }`}
+                >
                   <svg
                     className="wheel__inner-mini-ticks"
                     viewBox="0 0 100 100"
@@ -281,12 +414,15 @@ export default function Wheel({
                     size={22}
                     strokeWidth={1.75}
                     aria-hidden="true"
-                    className="wheel__inner-icon"
+                    className={`wheel__inner-icon ${
+                      isMuted ? "wheel__inner-icon--muted" : ""
+                    }`}
                   />
                 </span>
-              </span>
+              </button>
             </span>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -307,7 +443,10 @@ export default function Wheel({
         ref={playButtonRef}
         className="wheel__play"
         type="button"
-        onClick={onTogglePlay}
+        onClick={(event) => {
+          event.stopPropagation();
+          onTogglePlay();
+        }}
         aria-label={isPlaying ? "Stop rotation" : "Start rotation"}
         aria-pressed={isPlaying}
       >

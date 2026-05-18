@@ -10,6 +10,60 @@ import {
 } from "lucide-react";
 import Wheel from "./components/Wheel";
 
+const cowbellPattern = [
+  true,
+  true,
+  true,
+  true,
+  false,
+  true,
+  true,
+  true,
+  true,
+  false,
+  true,
+  false
+];
+
+const kickSnarePattern = [
+  "kick",
+  null,
+  "snare",
+  null,
+  "kick",
+  null,
+  "snare",
+  null,
+  "kick",
+  null,
+  "snare",
+  null
+];
+
+const sparseKickSnarePattern = [
+  "kick",
+  null,
+  null,
+  "snare",
+  null,
+  null,
+  "kick",
+  null,
+  null,
+  "snare",
+  null,
+  null
+];
+
+const initialMutedTracks = {
+  keys: true,
+  guitar: true,
+  drum: true,
+  cowbell: false,
+  kickSnare: true,
+  sparseKickSnare: true
+};
+
 function SliderControl({
   ariaLabel,
   icon: Icon,
@@ -155,6 +209,9 @@ export default function App() {
   const activeVoicesRef = useRef(new Set());
   const isPlayingRef = useRef(false);
   const keyboardPairIndexRef = useRef(0);
+  const cowbellStepIndexRef = useRef(0);
+  const kickSnareStepIndexRef = useRef(0);
+  const sparseKickSnareStepIndexRef = useRef(0);
   const outerCrotchetIndexRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -163,11 +220,7 @@ export default function App() {
   const [playClockwise, setPlayClockwise] = useState(false);
   const [dayMode, setDayMode] = useState(false);
   const [outerMuted, setOuterMuted] = useState(false);
-  const [mutedTracks, setMutedTracks] = useState({
-    keys: false,
-    guitar: false,
-    drum: false
-  });
+  const [mutedTracks, setMutedTracks] = useState(initialMutedTracks);
   const outerMutedRef = useRef(outerMuted);
   const mutedTracksRef = useRef(mutedTracks);
   const nightMode = !dayMode;
@@ -420,6 +473,141 @@ export default function App() {
         });
       });
     }
+
+    [0, 1, 2].forEach((subdivisionIndex) => {
+      const isHit = cowbellPattern[cowbellStepIndexRef.current];
+
+      if (!muted.cowbell && isHit) {
+        const hitStartTime = startTime + subdivisionDuration * subdivisionIndex;
+
+        scheduleVoice({
+          audioContext,
+          startTime: hitStartTime,
+          type: "square",
+          startFrequency: 760,
+          endFrequency: 752,
+          peakGain: 0.038,
+          attack: 0.001,
+          release: 0.07,
+          duration: 0.075
+        });
+
+        scheduleVoice({
+          audioContext,
+          startTime: hitStartTime,
+          type: "square",
+          startFrequency: 540,
+          endFrequency: 534,
+          peakGain: 0.03,
+          attack: 0.001,
+          release: 0.065,
+          duration: 0.07
+        });
+      }
+
+      cowbellStepIndexRef.current =
+        (cowbellStepIndexRef.current + 1) % cowbellPattern.length;
+    });
+
+    [0, 1, 2].forEach((subdivisionIndex) => {
+      const hitType = kickSnarePattern[kickSnareStepIndexRef.current];
+
+      if (!muted.kickSnare && hitType) {
+        const hitStartTime = startTime + subdivisionDuration * subdivisionIndex;
+
+        if (hitType === "kick") {
+          scheduleVoice({
+            audioContext,
+            startTime: hitStartTime,
+            type: "sine",
+            startFrequency: 92,
+            endFrequency: 42,
+            peakGain: 0.2,
+            attack: 0.001,
+            release: 0.13,
+            duration: 0.14
+          });
+        } else {
+          scheduleVoice({
+            audioContext,
+            startTime: hitStartTime,
+            type: "triangle",
+            startFrequency: 320,
+            endFrequency: 155,
+            peakGain: 0.12,
+            attack: 0.001,
+            release: 0.09,
+            duration: 0.1
+          });
+
+          scheduleVoice({
+            audioContext,
+            startTime: hitStartTime,
+            type: "square",
+            startFrequency: 1320,
+            endFrequency: 1180,
+            peakGain: 0.035,
+            attack: 0.001,
+            release: 0.045,
+            duration: 0.05
+          });
+        }
+      }
+
+      kickSnareStepIndexRef.current =
+        (kickSnareStepIndexRef.current + 1) % kickSnarePattern.length;
+    });
+
+    [0, 1, 2].forEach((subdivisionIndex) => {
+      const hitType =
+        sparseKickSnarePattern[sparseKickSnareStepIndexRef.current];
+
+      if (!muted.sparseKickSnare && hitType) {
+        const hitStartTime = startTime + subdivisionDuration * subdivisionIndex;
+
+        if (hitType === "kick") {
+          scheduleVoice({
+            audioContext,
+            startTime: hitStartTime,
+            type: "sine",
+            startFrequency: 92,
+            endFrequency: 42,
+            peakGain: 0.2,
+            attack: 0.001,
+            release: 0.13,
+            duration: 0.14
+          });
+        } else {
+          scheduleVoice({
+            audioContext,
+            startTime: hitStartTime,
+            type: "triangle",
+            startFrequency: 320,
+            endFrequency: 155,
+            peakGain: 0.12,
+            attack: 0.001,
+            release: 0.09,
+            duration: 0.1
+          });
+
+          scheduleVoice({
+            audioContext,
+            startTime: hitStartTime,
+            type: "square",
+            startFrequency: 1320,
+            endFrequency: 1180,
+            peakGain: 0.035,
+            attack: 0.001,
+            release: 0.045,
+            duration: 0.05
+          });
+        }
+      }
+
+      sparseKickSnareStepIndexRef.current =
+        (sparseKickSnareStepIndexRef.current + 1) %
+        sparseKickSnarePattern.length;
+    });
   };
 
   const handleToggleTrackMute = (trackId) => {
@@ -440,12 +628,18 @@ export default function App() {
 
     if (!nextPlaying) {
       keyboardPairIndexRef.current = 0;
+      cowbellStepIndexRef.current = 0;
+      kickSnareStepIndexRef.current = 0;
+      sparseKickSnareStepIndexRef.current = 0;
       outerCrotchetIndexRef.current = 0;
       stopActiveVoices();
       return;
     }
 
     keyboardPairIndexRef.current = 0;
+    cowbellStepIndexRef.current = 0;
+    kickSnareStepIndexRef.current = 0;
+    sparseKickSnareStepIndexRef.current = 0;
     outerCrotchetIndexRef.current = 0;
     const audioContext = await ensureAudioContext();
 

@@ -1,5 +1,57 @@
-import { Drum, Guitar, KeyboardMusic } from "lucide-react";
+import {
+  Drum,
+  Guitar,
+  KeyboardMusic,
+  Pyramid,
+  Square,
+  SquareArrowRightEnter
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
+const cowbellPattern = [
+  true,
+  true,
+  true,
+  true,
+  false,
+  true,
+  true,
+  true,
+  true,
+  false,
+  true,
+  false
+];
+
+const kickSnarePattern = [
+  "kick",
+  null,
+  "snare",
+  null,
+  "kick",
+  null,
+  "snare",
+  null,
+  "kick",
+  null,
+  "snare",
+  null
+];
+
+const sparseKickSnarePattern = [
+  "kick",
+  null,
+  null,
+  "snare",
+  null,
+  null,
+  "kick",
+  null,
+  null,
+  "snare",
+  null,
+  null
+];
 
 const innerCircles = [
   {
@@ -22,6 +74,27 @@ const innerCircles = [
     className: "wheel__inner-orbit wheel__inner-orbit--three",
     Icon: Drum,
     markerMode: "pulse"
+  },
+  {
+    id: "cowbell",
+    label: "Cowbell",
+    className: "wheel__inner-orbit wheel__inner-orbit--four",
+    Icon: Pyramid,
+    markerMode: "cowbell"
+  },
+  {
+    id: "kickSnare",
+    label: "Kick and snare",
+    className: "wheel__inner-orbit wheel__inner-orbit--five",
+    Icon: SquareArrowRightEnter,
+    markerMode: "kickSnare"
+  },
+  {
+    id: "sparseKickSnare",
+    label: "Sparse kick and snare",
+    className: "wheel__inner-orbit wheel__inner-orbit--six",
+    Icon: Square,
+    markerMode: "sparseKickSnare"
   }
 ];
 
@@ -314,6 +387,78 @@ export default function Wheel({
                   isPlaying && index === activeDrumPulseIndex
                     ? "wheel__inner-mini-tick--active"
                     : ""
+                }`}
+                x1="50"
+                y1="1.75"
+                x2="50"
+                y2="5.75"
+                transform={`rotate(${angle + 90} 50 50)`}
+              />
+            )}
+            {shouldShowNumber ? (
+              <text
+                className="wheel__inner-mini-number wheel__inner-mini-number--pulse"
+                x={x}
+                y={y}
+              >
+                {index + 1}
+              </text>
+            ) : null}
+          </g>
+        );
+      }
+
+      if (markerMode === "cowbell") {
+        const isHit = cowbellPattern[index];
+        const isActive = isPlaying && index === activeDrumPulseIndex;
+        const shouldShowNumber = isActive && isHit;
+        const radians = (angle * Math.PI) / 180;
+        const x = 50 + Math.cos(radians) * 46.25;
+        const y = 50 + Math.sin(radians) * 46.25;
+
+        return (
+          <g key={`inner-cowbell-${angle}`}>
+            {shouldShowNumber ? null : (
+              <line
+                className={`wheel__inner-mini-tick ${
+                  isActive && isHit ? "wheel__inner-mini-tick--active" : ""
+                }`}
+                x1="50"
+                y1="1.75"
+                x2="50"
+                y2="5.75"
+                transform={`rotate(${angle + 90} 50 50)`}
+              />
+            )}
+            {shouldShowNumber ? (
+              <text
+                className="wheel__inner-mini-number wheel__inner-mini-number--pulse"
+                x={x}
+                y={y}
+              >
+                {index + 1}
+              </text>
+            ) : null}
+          </g>
+        );
+      }
+
+      if (markerMode === "kickSnare" || markerMode === "sparseKickSnare") {
+        const pattern =
+          markerMode === "kickSnare" ? kickSnarePattern : sparseKickSnarePattern;
+        const hitType = pattern[index];
+        const isActive = isPlaying && index === activeDrumPulseIndex;
+        const shouldShowNumber = isActive && hitType;
+        const radians = (angle * Math.PI) / 180;
+        const x = 50 + Math.cos(radians) * 46.25;
+        const y = 50 + Math.sin(radians) * 46.25;
+
+        return (
+          <g key={`inner-${markerMode}-${angle}`}>
+            {shouldShowNumber ? null : (
+              <line
+                className={`wheel__inner-mini-tick ${
+                  isActive && hitType ? "wheel__inner-mini-tick--active" : ""
                 }`}
                 x1="50"
                 y1="1.75"

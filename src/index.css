@@ -150,7 +150,10 @@
 
   .wheel__inner-orbit--one,
   .wheel__inner-orbit--two,
-  .wheel__inner-orbit--three {
+  .wheel__inner-orbit--three,
+  .wheel__inner-orbit--four,
+  .wheel__inner-orbit--five,
+  .wheel__inner-orbit--six {
     position: absolute;
     width: 22%;
     aspect-ratio: 1;
@@ -219,6 +222,21 @@
   .wheel__inner-orbit--three {
     left: 66.9%;
     top: 20.7%;
+  }
+
+  .wheel__inner-orbit--four {
+    left: 83.9%;
+    top: 50%;
+  }
+
+  .wheel__inner-orbit--five {
+    left: 33.1%;
+    top: 79.3%;
+  }
+
+  .wheel__inner-orbit--six {
+    left: 66.9%;
+    top: 79.3%;
   }
 
   .wheel__play {
